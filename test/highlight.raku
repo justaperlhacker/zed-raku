@@ -191,6 +191,12 @@ my %config = (debug => 1, verbose => 0);
 say %config<debug>;
 say %hash<alpha beta>;
 
+# chained subscripts
+my @matrix = [[1, 2], [3, 4]];
+say @matrix[0][1];
+my %deep = (outer => (inner => 42));
+say %deep<outer><inner>;
+
 # --- declarators ------------------------------------------------------------
 subset Positive of Int where * > 0;
 constant $PI = 3.14159;
