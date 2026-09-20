@@ -26,6 +26,7 @@ my $octal  = 0o17;
 my $binary = 0b101;
 my $radix  = :16<ff>;
 my $string = 'single quoted';
+my $raw    = Q{no $interp \n here};
 my $interp = "value is $scalar";
 my @words  = <one two three>;
 
