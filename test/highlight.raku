@@ -138,6 +138,12 @@ role Greeter {
     method greet { return "Hello, world!"; }
 }
 
+# parameterised role
+role Wrapper[::T] {
+    has $.value;
+    method get(--> ::T) { $!value }
+}
+
 class Robot does Greeter is export {
     method new { return self.bless; }
 }
