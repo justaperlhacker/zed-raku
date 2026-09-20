@@ -108,6 +108,10 @@
 ; Reduction metaoperator: `[+]`, `[~]`, `[max]`
 (reduction_expression operator: _ @operator)
 
+; Zip/cross and hyper metaoperators: `Z`, `X`, `Z+`, `>>+<<`
+(zip_cross_expression operator: _ @operator)
+(hyper_expression operator: _ @operator)
+
 (subset_declaration name: (bareword) @type)
 (subset_declaration base: (bareword) @type)
 (constant_declaration name: (bareword) @constant)

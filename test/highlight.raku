@@ -176,6 +176,15 @@ my $total  = [+] @array;
 my $joined = [~] @words;
 my $biggest = [max] @array;
 
+# --- zip, cross & hyper metaoperators ---------------------------------------
+my @zipped  = @array Z @words;
+my @paired  = @array Z=> @words;
+my @summed  = @array Z+ @array;
+my @crossed = @array X @words;
+my @ewadd   = @array >>+<< @array;
+my @ewmul   = @array »*« @array;
+my @shouty  = @words>>.uc;
+
 # --- phasers ----------------------------------------------------------------
 BEGIN { say 'compile time'; }
 INIT  { say 'runtime init'; }
