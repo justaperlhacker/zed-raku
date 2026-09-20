@@ -101,6 +101,10 @@
 (has_declaration trait: (bareword) @attribute)
 "is" @keyword
 
+; User-defined operator definitions: `sub infix:<+> { ... }`
+[ "infix" "prefix" "postfix" "circumfix" "postcircumfix" "term" ] @keyword
+(operator) @operator
+
 (subset_declaration name: (bareword) @type)
 (subset_declaration base: (bareword) @type)
 (constant_declaration name: (bareword) @constant)

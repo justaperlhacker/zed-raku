@@ -156,6 +156,12 @@ subset Positive of Int where * > 0;
 constant $PI = 3.14159;
 my constant Answer = 42;
 
+# --- user-defined operators -------------------------------------------------
+sub infix:<plus>(Int $a, Int $b) { $a + $b }
+sub prefix:<±>(Int $x) { -$x }
+sub postfix:<bang>(Int $n) { $n }
+sub term:<now> { time }
+
 # --- phasers ----------------------------------------------------------------
 BEGIN { say 'compile time'; }
 INIT  { say 'runtime init'; }
