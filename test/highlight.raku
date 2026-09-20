@@ -118,6 +118,13 @@ my $digits = rx/ \d+ /;
 'abc123' ~~ /(\d+)/;
 my $subbed = $string ~~ s/single/double/;
 
+# --- grammars ---------------------------------------------------------------
+grammar Calculator {
+    token TOP { <number>+ % <op> }
+    rule number { \d+ }
+    regex op { <[+*]> }
+}
+
 # --- classes, roles & packages ---------------------------------------------
 class Point {
     method new { return self.bless; }

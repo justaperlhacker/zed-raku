@@ -9,7 +9,7 @@ languages = ["languages/raku", "languages/pod"]
 
 [grammars.raku]
 repository = "https://github.com/justaperlhacker/tree-sitter-raku"
-rev = "e4cdc0b3639e3237a5ba22ef6eef4c5fe621e624"
+rev = "5213f0916c8699c7aa70deeb877532290acd6d0a"
 
 [grammars.pod]
 repository = "https://github.com/tree-sitter-perl/tree-sitter-pod"
