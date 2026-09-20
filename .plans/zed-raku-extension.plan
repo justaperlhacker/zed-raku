@@ -109,6 +109,14 @@ Owner:     johnm
       - rev `bc95dafd`: all Raku phasers (`ENTER`, `LEAVE`, `KEEP`, `UNDO`,
         `FIRST`, `LAST`, `NEXT`, `PRE`, `POST`, `CATCH`, `CONTROL`, `COMPOSE`,
         `START` in addition to `BEGIN`/`CHECK`/`INIT`/`END`/`UNITCHECK`).
+      - rev `d4f52e9a`: user-defined operator definitions (`sub infix:<+>`,
+        `prefix:<->`, `postfix:<!>`, `circumfix:<...>`, `term:<...>`).
+      - rev `217e5d25`: parameterized roles/classes (`role R[::T]`,
+        `class C[::T]`).
+      - rev `20b2ffe1`: reduction metaoperators (`[+]`, `[~]`, `[max]`, `[*]`,
+        ...); corrected return-type syntax to match Rakudo (`--> T` inside the
+        signature, `of`/`returns T` outside — the outside `-->` form is a
+        syntax error in Raku).
       All verified against the grammar's own test suite with no new failures.
 
 ### M2 - Extension scaffold
