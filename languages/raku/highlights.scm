@@ -12,7 +12,7 @@
 
 ; --- Keywords ---------------------------------------------------------------
 [ "use" "no" "require" ] @keyword.include
-[ "package" "class" "role" ] @keyword
+[ "package" "class" "role" "but" ] @keyword
 
 [ "if" "elsif" "else" "unless" "given" "when" "default" ] @keyword.conditional
 [ "while" "until" "for" "foreach" "do" ] @keyword.repeat

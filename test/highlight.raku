@@ -155,6 +155,10 @@ sub shout() is export { say 'HEY'; }
 
 say Point.new.origin;
 
+# `but` mixes in a role/value
+my $greeting = $string but role { method shout { self.uc } };
+my $flag     = $scalar but True;
+
 # --- angle subscripts -------------------------------------------------------
 my %config = (debug => 1, verbose => 0);
 say %config<debug>;
