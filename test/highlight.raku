@@ -149,6 +149,9 @@ role Wrapper[::T] {
 
 class Robot does Greeter is export {
     method new { return self.bless; }
+    method !secret { return 42; }
+    method ^meta { return 1; }
+    submethod DESTROY { }
 }
 
 sub shout() is export { say 'HEY'; }

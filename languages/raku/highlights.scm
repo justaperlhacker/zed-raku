@@ -18,7 +18,7 @@
 [ "while" "until" "for" "foreach" "do" ] @keyword.repeat
 [ "try" "catch" "finally" ] @keyword.exception
 [ "return" ] @keyword.return
-[ "sub" "method" "async" "extended" "multi" "proto" "only" ] @keyword.function
+[ "sub" "method" "submethod" "async" "extended" "multi" "proto" "only" ] @keyword.function
 
 [
   "my" "our" "local" "state" "field"
