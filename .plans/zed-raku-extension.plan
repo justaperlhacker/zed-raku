@@ -1,0 +1,136 @@
+# Project: Zed Raku language extension
+
+A local (and eventually publishable) Zed extension providing real Raku
+language support: tree-sitter syntax highlighting, indentation, bracket
+matching, outline, text objects, and (optionally) RakuNavigator LSP.
+
+Repo:      ~/Projects/zed-raku
+Status:    PLANNED
+Owner:     johnm
+
+---
+
+## 1. Background / motivation
+
+- Zed has no Raku (formerly Perl 6) support in the registry or built-ins.
+- The only usable tree-sitter grammar is `acrion/tree-sitter-raku`, a fork of
+  `tree-sitter-perl` with "initial" Raku adjustments (most notably hyphens in
+  identifiers). It ships Helix queries.
+- `tree-sitter-perl/zed-perl` is a complete, working Zed language extension
+  and is our scaffolding reference.
+- Until this lands, Raku files are approximated as Perl via `file_types` in
+  `~/.dotfiles/zed/.config/zed/settings.json`.
+
+## 2. Constraints / gotchas (verified 2026-09-19)
+
+- [ ] **Extension id must not contain "zed"/"Zed"/"extension"** (Zed rule).
+      Use id `raku`. The repo/dir may be called `zed-raku`.
+- [ ] The grammar repo does **not** commit `src/parser.c`; must run
+      `tree-sitter generate` (CLI 0.26.9 + Node 26 present).
+- [ ] Zed dev extensions require **rustup** + wasm target
+      (`wasm32-wasip1`). System Rust is installed but rustup is NOT.
+- [ ] Grammar quality caps output: it is a lightly modified Perl grammar, so
+      Raku-only syntax (`given/when`, twigils, `role`, `multi`, `subset`,
+      junctions, etc.) will mis-highlight until the grammar improves.
+- [ ] Grammar is licensed MIT; keep attribution.
+
+## 3. Deliverables
+
+- Local dev extension loaded in Zed via `zed: install dev extension`.
+- Syntax highlighting for the Raku file set (see 5.2) + first-line shebang.
+- Auto-indent, bracket matching, outline, text objects.
+- (Stretch) RakuNavigator LSP integration.
+- (Stretch) Published to the Zed extension registry.
+
+## 4. Repo layout (target)
+
+    zed-raku/
+      .plan
+      README.md
+      extension.toml            # id = "raku", pinned grammar rev
+      Cargo.toml                # zed_extension_api
+      src/
+        raku.rs                 # minimal Extension impl
+      languages/
+        raku/
+          config.toml
+          highlights.scm
+          brackets.scm
+          indents.scm
+          outline.scm
+          injections.scm
+          textobjects.scm
+      grammar/                  # (option) vendored parser.c, if not forking
+      scripts/
+        build-grammar.sh        # clone + tree-sitter generate + copy
+
+## 5. Milestones
+
+### M0 - Toolchain
+- [ ] Install rustup; `rustup target add wasm32-wasip1`.
+- [ ] Confirm `tree-sitter --version`, `node --version`.
+- [ ] `git init` in ~/Projects/zed-raku; add .gitignore.
+
+### M1 - Grammar
+- [ ] Decide grammar sourcing (pick one):
+      a) Fork `acrion/tree-sitter-raku` -> commit generated `parser.c`,
+         pin `extension.toml` `[grammars.raku] rev = "<sha>"`.
+      b) Vendor grammar locally and use a `file://` repository URL.
+      (Prefer (a) for portability; (b) for a fast first pass.)
+- [ ] Clone grammar, run `tree-sitter generate`, verify `src/parser.c`.
+- [ ] Record upstream rev for reproducibility.
+
+### M2 - Extension scaffold
+- [ ] `extension.toml` (id `raku`, name "Raku", schema_version 1, grammars).
+- [ ] `Cargo.toml` (copy zed-perl: `zed_extension_api`, cdylib).
+- [ ] `src/raku.rs` minimal impl.
+- [ ] `languages/raku/config.toml`:
+      - name = "Raku", grammar = "raku"
+      - path_suffixes = raku, rakumod, rakutest, rakudoc, p6, pl6, pm6, t6, pod6, nqp
+      - first_line_pattern for `#!...raku` and `#!...perl6`
+      - line_comments = ["# "]
+      - autoclose_before + brackets
+- [ ] Load via `zed: install dev extension`; sanity check.
+
+### M3 - Queries (bulk of the work)
+- [ ] Port `queries/highlights.scm` (Helix) -> Zed capture names.
+      Helix and Zed both use @keyword.*, @function, @string, @variable.*,
+      @comment, @constant.*; map Helix-only captures as needed.
+- [ ] Add `brackets.scm` ("(" @open ")" @close, etc.).
+- [ ] Reuse/adapt `indents.scm`.
+- [ ] Adapt `textobjects.scm`, `outline.scm`.
+- [ ] `injections.scm` for embedded POD (`=begin pod`) if the grammar supports.
+- [ ] Manually test against a corpus of real Raku files.
+
+### M4 - LSP (optional / stretch)
+- [ ] RakuNavigator (Node) install + build.
+- [ ] `[language_servers.raku-navigator]` in extension.toml (language "Raku").
+- [ ] Settings for rakuPath + includePaths.
+
+### M5 - Polish / publish (stretch)
+- [ ] README, LICENSE, attribution for tree-sitter-perl/-raku.
+- [ ] CI to build the grammar/ext (if publishing).
+- [ ] Submit to `zed-industries/extensions` (grammar repo must be public with
+      committed `parser.c`).
+
+## 6. Test corpus
+
+Collect representative files covering: scripts, modules (`.rakumod`), tests
+(`.rakutest`), grammar (`regex`/`grammar`/`token`/`rule`), OO
+(`class`/`role`/`method`/`multi`), `given/when`, junctions, twigils,
+heredocs, POD, and `nqp`.
+
+## 7. Risks
+
+- Grammar covers Raku only superficially -> highlighting gaps.
+- Zed query capture validation is stricter than Helix; unknown captures may
+  be ignored or warn.
+- rustup requirement adds setup friction; dev extensions build per machine.
+- `file://` grammar URLs are machine-specific (dotfiles portability issue).
+
+## 8. Interim approximation (done)
+
+`~/.dotfiles/zed/.config/zed/settings.json` maps the Raku file set listed in
+M2 to the existing **Perl** extension. This is intentionally temporary and
+should be removed once this extension is installed, to avoid the Perl
+extension claiming `.raku` etc.
