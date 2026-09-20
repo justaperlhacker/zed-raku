@@ -1,0 +1,151 @@
+# Working notes for continuing `zed-raku`
+
+Context/handoff doc so a future session (human or model) can pick this up
+without re-discovering everything. Read this first, then
+`grammar-status.plan` (fixes + gaps) and `zed-raku-extension.plan` (milestones).
+
+Last updated: 2026-09-20
+
+---
+
+## 1. Environment (verified 2026-09-20)
+
+- OS: Linux (Arch). Shell: bash.
+- `tree-sitter` 0.26.9, `node` v26.8.2.
+- System Rust 1.98.1 (`rustc`/`cargo` on PATH); **rustup is NOT installed**,
+  but system Rust already ships the wasm targets (`wasm32-wasip1`,
+  `wasm32-wasip2`). Zed has successfully built the dev extension anyway.
+- Rakudo: `/home/johnm/.rakubrew/versions/moar-2026.07/bin/raku` (on PATH).
+- Zed 1.20.2 (binary `/usr/lib/zed/zed-editor`; `zed-editor` is not a shell
+  command). Logs: `~/.local/share/zed/logs/Zed.log`.
+- `gh` is authenticated as `justaperlhacker`; git SSH alias
+  `github-justaperlhacker` is configured.
+
+## 2. Repos & paths
+
+| Thing | Path / URL |
+|-------|------------|
+| Extension repo (local) | `/home/johnm/Projects/zed-raku` |
+| Extension repo (remote) | https://github.com/justaperlhacker/zed-raku (`origin`, SSH alias) |
+| Grammar fork (local) | `/home/johnm/Projects/tree-sitter-raku` |
+| Grammar fork (remote) | https://github.com/justaperlhacker/tree-sitter-raku (`origin`) |
+| Grammar upstream | https://github.com/acrion/tree-sitter-raku (base `5031abc`) |
+| Zed dev extension | `~/.local/share/zed/extensions/installed/raku` → symlink to the extension repo |
+| Zed grammar build output | `/home/johnm/Projects/zed-raku/grammars/` (raku.wasm, pod.wasm; gitignored) |
+| Zed settings | `~/.dotfiles/zed/.config/zed/settings.json` (symlinked from `~/.config/zed/settings.json`) |
+| RakuNavigator (LSP) | `/home/johnm/Projects/raku-navigator`; wrapper `~/.local/bin/raku-navigator` → `~/.local/share/raku-navigator/server/out/server.js` |
+
+There may also be a throwaway clone at `/tmp/opencode/tree-sitter-raku`; prefer
+the `~/Projects` one.
+
+## 3. Ground rules (user preferences)
+
+- Work **one gap group at a time**: implement, test, then commit.
+- For each group: push the grammar fork, bump `[grammars.raku].rev` in
+  `extension.toml`, update `test/highlight.raku` + `highlights.scm` as needed,
+  commit + push the extension repo.
+- Never commit/push without being asked (except as part of an approved group
+  workflow). Don't touch the dotfiles repo commit unless asked.
+- Keep the grammar's own test suite failure set unchanged (see §5).
+
+## 4. Grammar workflow (exact commands)
+
+From `/home/johnm/Projects/tree-sitter-raku`:
+
+```sh
+# edit grammar.js and/or src/scanner.c
+timeout 300 tree-sitter generate      # SLOW (~1-2 min); fix reported conflicts
+timeout 280 tree-sitter test          # confirm failure set unchanged
+# probe with small files:
+printf 'sub f($a?) { }\n' > /tmp/one.raku && tree-sitter parse /tmp/one.raku
+
+# commit (generated files are gitignored upstream -> force-add):
+git add grammar.js src/scanner.c
+git add -f src/parser.c src/node-types.json src/tree_sitter/parser.h \
+           src/tree_sitter/array.h src/grammar.json
+git commit -m "..."; git push origin HEAD:main
+```
+
+Then in `/home/johnm/Projects/zed-raku`:
+- set `[grammars.raku].rev` in `extension.toml` to the new commit;
+- update `languages/raku/highlights.scm` and `test/highlight.raku`;
+- `git add -A && git commit && git push origin main`.
+
+`scripts/build-grammar.sh` automates generate + push + rev bump (uses the SSH
+alias and a small Python snippet to edit only the raku grammar's rev).
+
+### tree-sitter gotchas
+
+- The `externals: [...]` array order **must match** the enum order in
+  `src/scanner.c` (e.g. `_regex_body` / `TOKEN_REGEX_BODY` were inserted just
+  before `_ERROR` / `TOKEN_ERROR`).
+- Add a `conflicts` entry **only** when `tree-sitter generate` explicitly asks
+  for one; then re-run and remove any "unnecessary conflicts" it reports.
+- `token.immediate(...)` is used to require adjacency (e.g. `%h{...}`,
+  `.method`, twigils, `1..10`).
+- Inlining internal rules (`inline: [...]`) made `parser.c` **larger** here —
+  avoid it.
+- String-literal query terms must exist as grammar tokens; unknown ones can
+  silently mis-match.
+
+## 5. Testing protocol
+
+- Baseline: `tree-sitter test` → 199 parses, 172 successful, **27 pre-existing
+  failures** (Perl-oriented corpus). Compare with:
+  `tree-sitter test 2>&1 | grep '✗' | sed 's/\x1b\[[0-9;]*m//g' | sort`.
+  Only "Slow parse rate" warnings may differ.
+- `tree-sitter parse /home/johnm/Projects/zed-raku/test/highlight.raku` should
+  report **0** errors.
+- `raku -c /home/johnm/Projects/zed-raku/test/highlight.raku` → `Syntax OK`.
+- Every query must compile:
+  `tree-sitter query languages/raku/<q>.scm test/highlight.raku` for
+  highlights, brackets, indents, outline, textobjects, injections, overrides.
+- Run queries from the **grammar** dir (so it uses the local parser), not from
+  the extension dir — running `tree-sitter query` on an unknown file type from
+  the extension dir can make the CLI auto-clone grammars into
+  `zed-raku/grammars/`.
+
+## 6. Zed integration
+
+- The installed dev extension is a **symlink** to `/home/johnm/Projects/zed-raku`,
+  so editing the project updates the installed files; but grammar rev changes
+  and query changes need a **rebuild**: Extensions page → **Raku** → **Rebuild**
+  (or re-run `zed: install dev extension`).
+- Zed's dev-extension builder checks out the grammar into
+  `/home/johnm/Projects/zed-raku/grammars/` and compiles `raku.wasm` /
+  `pod.wasm` there. **Do not delete that directory** — doing so caused
+  `failed to load language Raku: No such file or directory` until the next
+  rebuild.
+- Debug: `zed: open log`, or relaunch with `zed-editor --foreground`.
+- LSP: the extension resolves `raku-navigator` from PATH first, else the
+  `lsp.raku-navigator.settings.path` setting. Zed settings already point at the
+  PATH wrapper and set `includePaths`. The `raku-navigator` wrapper responds to
+  an LSP `initialize` correctly.
+- The settings file's `file_types` Perl mapping has the Raku suffixes commented
+  out, so nothing competes for `.raku`/`.rakumod`.
+
+## 7. Current state (as of last update)
+
+- Extension pinned to grammar rev `abbe426` (see `extension.toml`).
+- `test/highlight.raku` parses with 0 errors; all queries compile; grammar
+  suite failure set unchanged.
+- `README.md` documents the experimental status, fork changes, and known gaps.
+- `parser.c` ~55 MB (GitHub warns >50 MB, hard limit 100 MB). Accepted for now.
+- Both repos are public and pushed.
+
+## 8. Remaining work (see `grammar-status.plan` §3)
+
+- `q:to/END/` heredocs (hard; low priority).
+- Quote adverbs / unicode quotelike delimiters (`q:!c{...}`, `q«...»`).
+- Junction-specific highlighting (cosmetic).
+- `token`/`rule`/`regex` bodies parsed opaquely (not highlighted as regexes).
+- Misc unprobed: word metaoperators (`Zmax`), `o=`, `.()` invoke, etc.
+
+## 9. Key extension files
+
+- `extension.toml` — id `raku`, languages raku+pod, grammar revs, LSP entry.
+- `languages/raku/{config,highlights,brackets,indents,outline,textobjects,injections,overrides}`.
+- `languages/pod/*` — POD language (grammar `tree-sitter-pod`, Artistic 2.0).
+- `src/raku.rs` — minimal extension impl + RakuNavigator command resolution.
+- `test/highlight.raku` — the smoke test.
+- `.plans/` — this file, `grammar-status.plan`, `zed-raku-extension.plan`.
