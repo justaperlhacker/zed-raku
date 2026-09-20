@@ -36,6 +36,13 @@ my $concat = $string ~ '!';
 my $range  = 1..10;
 my $junc   = $scalar == 42 | 43;
 
+# --- compound assignment ----------------------------------------------------
+my $counter = 0;
+$counter += 1;
+$counter max= 10;
+my $text = 'a';
+$text ~= 'b';
+
 # --- method calls -----------------------------------------------------------
 my $upper  = $string.uc;
 my $slice  = $string.substr(0, 6);
