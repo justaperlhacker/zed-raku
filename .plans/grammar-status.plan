@@ -1,0 +1,192 @@
+# Project: zed-raku grammar status & gap log
+
+Running log of the Raku grammar work behind the `zed-raku` Zed extension:
+what was fixed, what is left, and how to continue. Companion to
+`zed-raku-extension.plan`.
+
+Status:    IN PROGRESS (grammar heavily patched; a few gaps remain)
+Owner:     johnm
+Last updated: 2026-09-20
+
+Repos:
+- Extension:    https://github.com/justaperlhacker/zed-raku
+- Grammar fork: https://github.com/justaperlhacker/tree-sitter-raku
+- Upstream:     https://github.com/acrion/tree-sitter-raku (base rev `5031abc`)
+
+Local paths:
+- Extension: `/home/johnm/Projects/zed-raku`
+- Grammar:   `/home/johnm/Projects/tree-sitter-raku`
+
+---
+
+## 1. How the grammar works (important context)
+
+- `grammar.js` is the source grammar (tree-sitter DSL, ~1,600 lines).
+- `tree-sitter generate` compiles it into `src/parser.c` (generated, ~55 MB),
+  `src/grammar.json`, and `src/node-types.json`.
+- `src/scanner.c` is a hand-written external scanner (strings, heredocs, POD,
+  signatures, etc.) and is **not** generated.
+- Zed compiles `src/parser.c` + `src/scanner.c` into the grammar wasm. It does
+  **not** run `tree-sitter generate` and does not read `grammar.js`.
+- Upstream gitignores `src/*`, so it ships no `parser.c` and cannot be built by
+  Zed. Our fork force-commits `parser.c` for that reason.
+
+So: **edit `grammar.js` (and sometimes `src/scanner.c`), regenerate, commit
+both the source and the generated files, push, then bump the pinned rev in the
+extension's `extension.toml`.**
+
+---
+
+## 2. Fixes done
+
+All verified against the grammar's own Perl test suite (`tree-sitter test`,
+199 parses, 27 pre-existing failures) with **no new failures**, plus
+`test/highlight.raku` (zero parse errors) and `raku -c`.
+
+| Rev | What | Examples |
+|-----|------|----------|
+| `1d13358` | Commit generated parser for Zed | (build enabling) |
+| `5de6437` | `~` binary concat; `multi`/`proto`/`only` | `$a ~ $b`, `multi sub f` |
+| `9a1a4ae` | Typed signatures, return types, `given`/`when` | `sub f(Int $x)`, `given $x { when 1 { } }` |
+| `f905384` | Twigils + `has` attributes | `$!x`, `$.x`, `has Int $.x is rw = 0;` |
+| `2414eb5` | POD stops at `=end` (nesting-aware) | `=begin pod … =end pod` |
+| `070d051` | `constant`/`subset`, Whatever `*`, pointy `for`, angle subscripts | `[+]`, `subset P of Int where * > 0;`, `%h<k>` |
+| `6b9a22f` | Raku `.method` calls; paren-less conditions | `$o.m(1)`, `if $x { }` |
+| `b89f595` | `is`/`does`/`handles` traits; safe/meta calls; named args; sigilless vars | `class C is B`, `$x.?m`, `f(:k(1))`, `my \x` |
+| `148563e` | Raku `?? !!` ternary | `$a ?? $b !! $c` |
+| `bc95daf` | All phasers | `ENTER`, `LEAVE`, `FIRST`, `LAST`, `NEXT`, `CATCH`, … |
+| `d4f52e9` | User-defined operators | `sub infix:<+>`, `prefix:`, `postfix:`, `circumfix:`, `term:` |
+| `217e5d2` | Parameterised roles/classes | `role R[::T] { }`, `class C[::T]` |
+| `a92fa33` | Reduction metaoperators | `[+]`, `[~]`, `[max]`, `[*]` |
+| `20b2ffe` | Return-type correction (`-->` inside, `of`/`returns` outside) | `sub f($x --> Int)`, `sub f($x) of Int` |
+| `a3c3de1` | Zip/cross + hyper metaoperators; hyper method calls | `@a Z+ @b`, `@a >>+<< @b`, `@a>>.uc` |
+| `83f53a2` | `but` + anonymous roles | `$x but role { method f { } }` |
+| `e4cdc0b` | Private/meta methods + `submethod` | `method !x`, `method ^x`, `submethod BUILD` |
+| `5213f09` | `grammar`/`token`/`rule`/`regex` declarations | `grammar G { token TOP { \d+ } }` |
+| `a44b995` | Signature param modifiers | `$a?`, `:$a!`, `where * > 0`, `is rw` |
+| `be5a4c9` | Compound assignment ops | `~=`, `max=`, `min=`, `Z=`, `X=` |
+| `bc34d89` | Number literals | `0o17`, `0d10`, `:16<ff>` |
+| `11ef6c5` | Chained subscripts | `@a[0][1]`, `%h<a><b>` |
+| `dfbb614` | `Q` quote operator | `Q{...}`, `Q<<...>>` |
+| `abbe426` | Refactor: merge `slices` into `subscripted`, dedup angle subscripts | (maintainability) |
+
+Pinned extension rev currently matches the latest grammar rev (see
+`extension.toml` `[grammars.raku].rev`).
+
+### Notable design decisions / gotchas
+
+- **Immediate subscript braces**: `%h{...}` uses `token.immediate('{')` so a
+  spaced `{` starts a block (needed to disambiguate `given $x { ... }`).
+- **`.` is not concat**: removed from the Perl additive operators; method calls
+  use `.`, ranges use `..`. Number literals were changed to require digits
+  after `.` so `1..10` lexes as a range.
+- **Twigils**: a single immediate token
+  `/[!.^?*:+=~][XID_Start][XID_Continue-]*/` so longest-match separates `$!foo`
+  from the special var `$!`, without breaking `.foo` method calls.
+- **GLR conflicts**: Raku disambiguation needs many `conflicts` entries; these
+  are the main driver of `parser.c` size. Inlining internal rules made the
+  parser *larger*, so avoid it.
+
+---
+
+## 3. Gaps still to fix
+
+Ordered roughly by value/effort.
+
+### 3.1 `q:to/END/` heredocs — HARD
+- Raku heredocs are a quotelike with the `:to` adverb (`q:to/END/`,
+  `qq:to/END/`), not Perl's `<<DELIM`.
+- The existing heredoc machinery is keyed to `_PERLY_HEREDOC` (`<<`) and the
+  external `_heredoc_delimiter`/`_heredoc_start`/`_heredoc_middle`/`heredoc_end`
+  tokens driven by `lexerstate_add_heredoc()` in `src/scanner.c`.
+- Approach: intercept `q:to` / `qq:to` in the scanner's quotelike handling,
+  parse the delimiter, call `lexerstate_add_heredoc()`, and add a grammar rule
+  for the `q:to` form. Higher regression risk; test the Perl heredoc corpus.
+- Low priority for johnm (rarely uses heredocs).
+
+### 3.2 Quote adverbs & unicode delimiters — MEDIUM
+- `q:!c{...}`, `Q:q{...}`, `q:to/.../`, `q«...»` (guillemets) currently error.
+- Needs adverb parsing after the quote operator and additional delimiter
+  handling in the scanner.
+
+### 3.3 Junction-specific highlighting — LOW (cosmetic)
+- `1 | 2`, `1 & 2` parse as bitwise ops (`binary_expression`), so they get the
+  generic `@operator` highlight, not a junction-specific one. Visually similar.
+- Could add a `junctive_expression` rule, but that changes Perl bitwise parsing
+  and would likely break the Perl test suite. Probably not worth it.
+
+### 3.4 `token`/`rule`/`regex` bodies are opaque — LOW
+- Bodies are captured by a scanner external token (`_regex_body`) and aliased to
+  `regexp_content`, so they are **not** highlighted as regexes. To do better,
+  reuse the quotelike regex content machinery with `{`/`}` delimiters.
+
+### 3.5 Misc not yet probed
+- Metaoperators with word operators (`Zmax`, `Xeq`).
+- `o=` (one-shot), `⊍=` etc. user-defined meta-assignments.
+- `use lib <lib>`, `need`, `require` (currently parse loosely).
+- `.=` method-assignment edge cases, `.()` invoke.
+- Unicode operator names / custom circumfix delimiters.
+
+---
+
+## 4. parser.c size
+
+- Currently ~55 MB (GitHub warns above 50 MB, hard limit 100 MB).
+- Dominated by the generated parse table: `STATE_COUNT 11514`,
+  `LARGE_STATE_COUNT 7472`, `SYMBOL_COUNT 573`, `TOKEN_COUNT 363`.
+- Duplication removal (rev `abbe426`) only saved ~0.3 MB; inlining made it worse.
+- If it approaches ~90 MB, options: (a) trim/restructure GLR conflicts (risky),
+  (b) host the compiled grammar as a release asset and download it, (c) accept.
+- Decision for now: **accept**, revisit only if it becomes a blocker.
+
+---
+
+## 5. Workflow to add/fix grammar syntax
+
+From `/home/johnm/Projects/tree-sitter-raku`:
+
+1. Edit `grammar.js` (and `src/scanner.c` if needed).
+2. `tree-sitter generate` (slow; ~1–2 min due to parser size). Fix conflicts it
+   reports; add a `conflicts` entry only when tree-sitter asks for one.
+3. `tree-sitter test` — confirm the failure set is unchanged (baseline: 27
+   failures; compare with `tree-sitter test 2>&1 | grep '✗'`).
+4. Probe the new syntax with `tree-sitter parse` on small files; check
+   `/home/johnm/Projects/zed-raku/test/highlight.raku` parses with 0 errors and
+   `raku -c test/highlight.raku` says `Syntax OK`.
+5. `git add grammar.js` (and `src/scanner.c`), plus force-add the generated
+   files:
+   ```
+   git add -f src/parser.c src/node-types.json src/tree_sitter/parser.h \
+              src/tree_sitter/array.h src/grammar.json
+   git commit -m "..."; git push origin HEAD:main
+   ```
+6. Bump `[grammars.raku].rev` in the extension's `extension.toml` to the new
+   commit; update `languages/raku/highlights.scm` if new tokens/nodes need
+   highlighting; add examples to `test/highlight.raku`.
+7. Commit + push the extension repo.
+8. In Zed: Extensions → **Raku** → **Rebuild** to pick up the new rev.
+
+`scripts/build-grammar.sh` automates the generate + push + rev-bump steps.
+
+---
+
+## 6. Testing assets
+
+- `/home/johnm/Projects/zed-raku/test/highlight.raku` — comprehensive smoke
+  file; currently parses with **zero** tree-sitter errors and passes `raku -c`.
+- Ad-hoc probe files were used during development (in a temp dir); recreate as
+  needed.
+- The grammar's own corpus: `tree-sitter test` (Perl-oriented; keep the 27
+  pre-existing failures as the baseline).
+
+---
+
+## 7. Future / stretch
+
+- Keep the fork in sync with upstream `acrion/tree-sitter-raku` (rebase patches
+  onto new upstream commits; regenerate).
+- Publish to the Zed extension registry (requires the grammar repo public with
+  a committed `parser.c` — already true).
+- Revisit `q:to` heredocs and quote adverbs if needed.
+- Consider the LSP (RakuNavigator) setup already wired via PATH; see the
+  extension README.
