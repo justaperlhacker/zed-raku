@@ -2,3 +2,6 @@
 **/target/
 *.wasm
 .DS_Store
+
+# Grammars are checked out and compiled here by Zed's dev-extension builder.
+/grammars/

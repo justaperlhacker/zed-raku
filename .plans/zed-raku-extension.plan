@@ -5,7 +5,7 @@ language support: tree-sitter syntax highlighting, indentation, bracket
 matching, outline, text objects, and (optionally) RakuNavigator LSP.
 
 Repo:      ~/Projects/zed-raku
-Status:    PLANNED
+Status:    IN PROGRESS (M1-M3 scaffolded, LSP wired; pending in-Zed install)
 Owner:     johnm
 
 ---
@@ -29,9 +29,12 @@ Owner:     johnm
       `tree-sitter generate` (CLI 0.26.9 + Node 26 present).
 - [ ] Zed dev extensions require **rustup** + wasm target
       (`wasm32-wasip1`). System Rust is installed but rustup is NOT.
-- [ ] Grammar quality caps output: it is a lightly modified Perl grammar, so
-      Raku-only syntax (`given/when`, twigils, `role`, `multi`, `subset`,
-      junctions, etc.) will mis-highlight until the grammar improves.
+- [ ] Grammar quality caps output: a few Raku-only constructs still
+      mis-highlight/error: real junctions (`|`/`&` parse as bitwise ops),
+      reduction/hyper/zip/cross metaoperators (`[+]`, `>>+<<`, `Z`, `X`),
+      user-defined operators (`sub infix:<+>`), parameterized roles
+      (`role R[::T]`), the `but` operator, and `q:to` heredocs.
+      (We have patched most other gaps; see M1.)
 - [ ] Grammar is licensed MIT; keep attribution.
 
 ## 3. Deliverables
@@ -67,51 +70,80 @@ Owner:     johnm
 ## 5. Milestones
 
 ### M0 - Toolchain
-- [ ] Install rustup; `rustup target add wasm32-wasip1`.
-- [ ] Confirm `tree-sitter --version`, `node --version`.
-- [ ] `git init` in ~/Projects/zed-raku; add .gitignore.
+- [x] Confirm `tree-sitter --version` (0.26.9), `node --version` (v26.8.2).
+- [x] `git init` in ~/Projects/zed-raku; add .gitignore. (pre-existing)
+- [~] rustup NOT installed; system Rust 1.98 already ships
+      `wasm32-wasip1`/`wasm32-wasip2`, so cargo builds succeed. Zed may still
+      want rustup at install time.
 
 ### M1 - Grammar
-- [ ] Decide grammar sourcing (pick one):
-      a) Fork `acrion/tree-sitter-raku` -> commit generated `parser.c`,
-         pin `extension.toml` `[grammars.raku] rev = "<sha>"`.
-      b) Vendor grammar locally and use a `file://` repository URL.
-      (Prefer (a) for portability; (b) for a fast first pass.)
-- [ ] Clone grammar, run `tree-sitter generate`, verify `src/parser.c`.
-- [ ] Record upstream rev for reproducibility.
+- [x] Decide grammar sourcing: (a) fork `acrion/tree-sitter-raku` ->
+      `justaperlhacker/tree-sitter-raku`, commit generated `parser.c`, pin rev.
+- [x] Clone grammar, run `tree-sitter generate`, verify `src/parser.c`.
+- [x] Record upstream rev for reproducibility: upstream `5031abc8`.
+- [x] Fork patches on top of upstream:
+      - rev `5de6437d`: binary `~` string-concat operator; `multi`/`proto`/`only`
+        declarators before `sub`/`method`.
+      - rev `9a1a4aec`: typed signature params (`Int $n`, defaults, named
+        `Int :$x`, slurpy `*@a`), return types (`--> T`, inside and outside the
+        signature), and `given`/`when`/`default`. Subscript braces made
+        `token.immediate` (Raku semantics) to disambiguate `given $x { ... }`
+        from `$x{...}`.
+      - rev `f905384e`: twigil variables (`$!x`, `$.x`, `@.list`, `%!map`,
+        `$^x`, `$?x`, ...) and `has` attribute declarations (`has Int $.x is rw
+        = 0;`).
+      - rev `2414eb54`: POD scanner terminates at `=end` (nesting-aware), so
+        `=begin pod ... =end pod` no longer swallows the rest of the file.
+      - rev `070d051f`: `constant`/`subset` declarators, the Whatever star
+        (`*`), pointy `for @a -> $x { ... }`, and angle subscripts
+        (`%h<key>`).
+      - rev `6b9a22ff`: Raku `.method(...)` / `.method: args` calls (`.` removed
+        from the Perl concat operators; number literals now require digits
+        after `.`, fixing `1..10` ranges) and paren-less `if`/`elsif`/`while`/
+        `unless`/`until`/`for` conditions.
+      - rev `b89f5957`: `is`/`does`/`handles` traits on class/role/package/sub/
+        method/`has`; safe/meta method calls (`.?`, `.^`, `.&`, `.!`); named
+        arguments (`:name`, `:name(...)`, `:name<...>`, `:$var`, `:!name`);
+        sigilless variables (`my \x`).
+      - rev `148563e0`: Raku `?? !!` ternary.
+      - rev `bc95dafd`: all Raku phasers (`ENTER`, `LEAVE`, `KEEP`, `UNDO`,
+        `FIRST`, `LAST`, `NEXT`, `PRE`, `POST`, `CATCH`, `CONTROL`, `COMPOSE`,
+        `START` in addition to `BEGIN`/`CHECK`/`INIT`/`END`/`UNITCHECK`).
+      All verified against the grammar's own test suite with no new failures.
 
 ### M2 - Extension scaffold
-- [ ] `extension.toml` (id `raku`, name "Raku", schema_version 1, grammars).
-- [ ] `Cargo.toml` (copy zed-perl: `zed_extension_api`, cdylib).
-- [ ] `src/raku.rs` minimal impl.
-- [ ] `languages/raku/config.toml`:
+- [x] `extension.toml` (id `raku`, name "Raku", schema_version 1, grammars).
+- [x] `Cargo.toml` (copy zed-perl: `zed_extension_api`, cdylib).
+- [x] `src/raku.rs` minimal impl (+ opt-in RakuNavigator command resolution).
+- [x] `languages/raku/config.toml`:
       - name = "Raku", grammar = "raku"
       - path_suffixes = raku, rakumod, rakutest, rakudoc, p6, pl6, pm6, t6, pod6, nqp
       - first_line_pattern for `#!...raku` and `#!...perl6`
       - line_comments = ["# "]
-      - autoclose_before + brackets
-- [ ] Load via `zed: install dev extension`; sanity check.
+      - autoclose_before + brackets + word_characters
+- [x] Added a `pod` language/grammar for embedded POD (from zed-perl).
+- [ ] Load via `zed: install dev extension`; sanity check. (needs GUI)
 
 ### M3 - Queries (bulk of the work)
-- [ ] Port `queries/highlights.scm` (Helix) -> Zed capture names.
-      Helix and Zed both use @keyword.*, @function, @string, @variable.*,
-      @comment, @constant.*; map Helix-only captures as needed.
-- [ ] Add `brackets.scm` ("(" @open ")" @close, etc.).
-- [ ] Reuse/adapt `indents.scm`.
-- [ ] Adapt `textobjects.scm`, `outline.scm`.
-- [ ] `injections.scm` for embedded POD (`=begin pod`) if the grammar supports.
-- [ ] Manually test against a corpus of real Raku files.
+- [x] Port `queries/highlights.scm` (Helix) -> Zed capture names.
+- [x] Add `brackets.scm` ("(" @open ")" @close, etc.).
+- [x] Reuse/adapt `indents.scm`.
+- [x] Adapt `textobjects.scm`, `outline.scm`.
+- [x] `injections.scm` for embedded POD (`=begin pod`) + `s///e`.
+- [x] `overrides.scm` for `string`/`comment` scopes (bracket `not_in`).
+- [~] Manually test against a corpus of real Raku files. (smoke-tested via
+      `tree-sitter query`; needs real corpus + in-editor pass)
 
 ### M4 - LSP (optional / stretch)
-- [ ] RakuNavigator (Node) install + build.
-- [ ] `[language_servers.raku-navigator]` in extension.toml (language "Raku").
-- [ ] Settings for rakuPath + includePaths.
+- [ ] RakuNavigator (Node) install + build. (manual; not on npm)
+- [x] `[language_servers.raku-navigator]` in extension.toml (language "Raku").
+- [x] Settings for rakuPath + includePaths (passthrough + `path` to server.js).
 
 ### M5 - Polish / publish (stretch)
-- [ ] README, LICENSE, attribution for tree-sitter-perl/-raku.
+- [x] README, LICENSE, attribution for tree-sitter-perl/-raku/-pod.
 - [ ] CI to build the grammar/ext (if publishing).
 - [ ] Submit to `zed-industries/extensions` (grammar repo must be public with
-      committed `parser.c`).
+      committed `parser.c`). (fork is public + parser.c committed)
 
 ## 6. Test corpus
 

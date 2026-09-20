@@ -1,0 +1,20 @@
+id = "raku"
+name = "Raku"
+description = "Raku language support"
+version = "0.1.0"
+schema_version = 1
+authors = ["justaperlhacker"]
+repository = "https://github.com/justaperlhacker/zed-raku"
+languages = ["languages/raku", "languages/pod"]
+
+[grammars.raku]
+repository = "https://github.com/justaperlhacker/tree-sitter-raku"
+rev = "bc95dafd99619ac30d1f1d4d9edc2809e31fb0b8"
+
+[grammars.pod]
+repository = "https://github.com/tree-sitter-perl/tree-sitter-pod"
+rev = "cd1931314beafeebc957964c65802961e283411e"
+
+[language_servers.raku-navigator]
+name = "Raku Navigator"
+language = "Raku"

@@ -1,0 +1,26 @@
+name = "Raku"
+grammar = "raku"
+path_suffixes = [
+    "raku",
+    "rakumod",
+    "rakutest",
+    "rakudoc",
+    "p6",
+    "pl6",
+    "pm6",
+    "t6",
+    "pod6",
+    "nqp",
+]
+first_line_pattern = '^#!.*\b(raku|perl6)\b'
+line_comments = ["# "]
+autoclose_before = "\"'`}])"
+word_characters = ["-", "'"]
+brackets = [
+    { start = "{", end = "}", close = true, newline = true },
+    { start = "[", end = "]", close = true, newline = true },
+    { start = "(", end = ")", close = true, newline = true },
+    { start = "\"", end = "\"", close = true, newline = false, not_in = ["string", "comment"] },
+    { start = "'", end = "'", close = true, newline = false, not_in = ["string", "comment"] },
+    { start = "`", end = "`", close = true, newline = false, not_in = ["string", "comment"] },
+]
