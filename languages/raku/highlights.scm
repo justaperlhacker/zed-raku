@@ -99,7 +99,7 @@
 (_ returns: (bareword) @type)
 
 (has_declaration type: (bareword) @type)
-(has_declaration trait: (bareword) @attribute)
+(_ trait: (bareword) @attribute)
 "is" @keyword
 
 ; User-defined operator definitions: `sub infix:<+> { ... }`

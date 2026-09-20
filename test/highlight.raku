@@ -110,6 +110,12 @@ multi sub identify(Int $n) { "integer $n" }
 multi sub identify(Str $s) { "string $s" }
 say identify(42);
 
+# signature parameter modifiers
+sub optional($a?) { }
+sub required(:$b!) { }
+sub constrained(Int $c where * > 0) { }
+sub mutable($d is rw) { }
+
 my $code = sub { return 42; };
 say $code();
 
