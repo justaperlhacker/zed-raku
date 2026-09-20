@@ -33,7 +33,7 @@ Last updated: 2026-09-20
 | Zed dev extension | `~/.local/share/zed/extensions/installed/raku` → symlink to the extension repo |
 | Zed grammar build output | `/home/johnm/Projects/zed-raku/grammars/` (raku.wasm, pod.wasm; gitignored) |
 | Zed settings | `~/.dotfiles/zed/.config/zed/settings.json` (symlinked from `~/.config/zed/settings.json`) |
-| RakuNavigator (LSP) | `/home/johnm/Projects/raku-navigator`; wrapper `~/.local/bin/raku-navigator` → `~/.local/share/raku-navigator/server/out/server.js` |
+| RakuNavigator (LSP) | upstream clone `~/Repos/Raku/raku-navigator` (built); wrapper `~/.local/bin/raku-navigator` → `~/.local/share/raku-navigator/server/out/server.js` |
 
 There may also be a throwaway clone at `/tmp/opencode/tree-sitter-raku`; prefer
 the `~/Projects` one.
