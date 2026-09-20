@@ -101,6 +101,9 @@ sub add(Int $a, Int $b --> Int) {
     return $a + $b;
 }
 
+sub describe($x) of Str { "value: $x" }
+sub label($x) returns Str { "$x" }
+
 say add(1, 2);
 
 multi sub identify(Int $n) { "integer $n" }
@@ -167,6 +170,11 @@ sub infix:<plus>(Int $a, Int $b) { $a + $b }
 sub prefix:<±>(Int $x) { -$x }
 sub postfix:<bang>(Int $n) { $n }
 sub term:<now> { time }
+
+# --- reduction metaoperators ------------------------------------------------
+my $total  = [+] @array;
+my $joined = [~] @words;
+my $biggest = [max] @array;
 
 # --- phasers ----------------------------------------------------------------
 BEGIN { say 'compile time'; }
