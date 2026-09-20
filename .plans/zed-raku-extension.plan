@@ -31,9 +31,13 @@ Owner:     johnm
       (`wasm32-wasip1`). System Rust is installed but rustup is NOT.
 - [ ] Grammar quality caps output: a couple of Raku-only constructs still
       mis-highlight/error: real junctions (`|`/`&` parse as bitwise ops, so
-      they don't get a junction-specific highlight) and `q:to/END/` heredocs
-      (Perl `<<` only). Token/rule/regex bodies are parsed opaquely (not
-      highlighted as regexes). (We have patched most other gaps; see M1.)
+      they don't get a junction-specific highlight), `q:to/END/` heredocs
+      (Perl `<<` only), quote adverbs (`q:!c{...}`, `Q:q{...}`), unicode
+      quotelike delimiters (`q«...»`), and token/rule/regex bodies are parsed
+      opaquely (not highlighted as regexes). (See M1 for what is done.)
+- [ ] `src/parser.c` in the grammar fork is ~55 MB (GitHub warns above 50 MB).
+      Watch the 100 MB hard limit; consider trimming GLR conflicts or hosting
+      the grammar differently if it grows further.
 - [ ] Grammar is licensed MIT; keep attribution.
 
 ## 3. Deliverables
@@ -123,6 +127,13 @@ Owner:     johnm
         `submethod`.
       - rev `5213f091`: `grammar`/`token`/`rule`/`regex` declarations (opaque,
         brace-balanced regex bodies via a scanner external token).
+      - rev `a44b9955`: signature parameter modifiers (`$a?`, `:$a!`,
+        `where ...`, `is rw`).
+      - rev `be5a4c96`: Raku compound assignment operators (`~=`, `max=`,
+        `min=`, `Z=`, `X=`).
+      - rev `bc34d89d`: number literals `0o17`, `0d10`, radix `:16<ff>`.
+      - rev `11ef6c53`: chained subscripts (`@a[0][1]`, `%h<a><b>`).
+      - rev `dfbb6142`: `Q` quote operator.
       All verified against the grammar's own test suite with no new failures.
 
 ### M2 - Extension scaffold
